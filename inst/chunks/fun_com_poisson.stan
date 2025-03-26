@@ -28,15 +28,6 @@ real log_k_term(real log_mu, real nu, int k) {
   return (k - 1) * log_mu - nu * lgamma(k);
 }
 
-// bound for the remainder of the normalizing series of the COM Poisson
-// distribution given the last two terms in log-scale
-// Args:
-//   k_current_term: the log of a_k term
-//   k_previous_term: the log of a_(k-1) term
-real bound_remainder(real k_current_term, real k_previous_term) {
-  return k_current_term - log(- expm1(k_current_term - k_previous_term));
-}
-
 // log normalizing constant of the COM Poisson distribution
 // implementation inspired by code of Ben Goodrich
 // improved following suggestions of Sebastian Weber (#892)
@@ -46,7 +37,7 @@ real bound_remainder(real k_current_term, real k_previous_term) {
 real log_Z_com_poisson(real log_mu, real nu) {
   real log_Z;
   int k = 2;
-  int M = 10000;
+  int M = 100;
   real leps = -52 * log2();
   vector[M] log_Z_terms;
 
@@ -63,20 +54,12 @@ real log_Z_com_poisson(real log_mu, real nu) {
   if (log_mu * nu >= log(1.5) && log_mu >= log(1.5)) {
     return log_Z_com_poisson_approx(log_mu, nu);
   }
-  // direct computation of the truncated series
-  // check if the Mth term of the series pass in the stopping criteria
-  if (bound_remainder(log_k_term(log_mu, nu, M),
-                      log_k_term(log_mu, nu, M-1)) >= leps) {
-    reject("nu is too close to zero.");
-  }
 
   // first 2 terms of the series
   log_Z_terms[1] = log_k_term(log_mu, nu, 1);
   log_Z_terms[2] = log_k_term(log_mu, nu, 2);
 
-  while (((log_Z_terms[k] >= log_Z_terms[k-1]) ||
-    (bound_remainder(log_Z_terms[k], log_Z_terms[k-1]) >= leps)) &&
-    k < M) {
+  while ((log_Z_terms[k] >= log_Z_terms[k-1]) && k < M) {
     k += 1;
     log_Z_terms[k] = log_k_term(log_mu, nu, k);
   }
