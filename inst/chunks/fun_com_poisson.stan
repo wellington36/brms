@@ -47,7 +47,7 @@ real log_Z_com_poisson(real log_mu, real nu) {
   real log_Z;
   int k = 2;
   int M = 10000;
-  real leps = -52 * log2();
+  real leps = -23 * log2();
   vector[M] log_Z_terms;
 
   if (nu == 1) {
