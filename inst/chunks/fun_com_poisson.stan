@@ -37,7 +37,7 @@ real log_k_term(real log_mu, real nu, int k) {
 real log_Z_com_poisson(real log_mu, real nu) {
   real log_Z;
   int k = 2;
-  int M = 500;
+  int M = 2000;
   real leps = -52 * log2();
   vector[M] log_Z_terms;
 
