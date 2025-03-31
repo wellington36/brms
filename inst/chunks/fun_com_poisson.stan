@@ -37,7 +37,7 @@ real bound_remainder(real k_current_term, real k_previous_term) {
   return k_current_term - log(- expm1(k_current_term - k_previous_term));
 }
 
-real stopping_criterio(real k_current_term, real k_previous_term, int k, real leps) {
+int stopping_criterio(real k_current_term, real k_previous_term, int k, real leps) {
   if (k % 10 == 0) {
     return (bound_remainder(k_current_term, k_previous_term) >= leps);
   }
