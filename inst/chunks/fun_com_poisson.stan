@@ -37,11 +37,11 @@ real bound_remainder(real k_current_term, real k_previous_term) {
   return k_current_term - log(- expm1(k_current_term - k_previous_term));
 }
 
-bool stopping_criterio(real k_current_term, real k_previous_term, int k, real leps) {
+real stopping_criterio(real k_current_term, real k_previous_term, int k, real leps) {
   if (k % 10 == 0) {
     return (bound_remainder(log_Z_terms[k], log_Z_terms[k-1]) >= leps);
   }
-  return false;
+  return (1e300 >= leps); // Int > leps
 }
 
 // log normalizing constant of the COM Poisson distribution
