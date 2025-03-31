@@ -29,6 +29,9 @@ real log_Z_com_poisson(real log_mu, real nu) {
   if (nu == positive_infinity()) {
     reject("nu must be finite");
   }
+  if (log_mu * nu >= log(1.5) && log_mu >= log(1.5)) {
+    return log_Z_com_poisson_approx(log_mu, nu);
+  }
 
   // first 2 terms of the series
   log_Z_terms[1] = log_k_term(log_mu, nu, 1);
