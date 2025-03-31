@@ -37,6 +37,12 @@ real bound_remainder(real k_current_term, real k_previous_term) {
   return k_current_term - log(- expm1(k_current_term - k_previous_term));
 }
 
+bool stopping_criterio(real k_current_term, real k_previous_term, k, leps) {
+  if (k % 10 == 0) {
+    return (bound_remainder(log_Z_terms[k], log_Z_terms[k-1]) >= leps);
+  return TRUE;
+}
+
 // log normalizing constant of the COM Poisson distribution
 // implementation inspired by code of Ben Goodrich
 // improved following suggestions of Sebastian Weber (#892)
@@ -74,9 +80,9 @@ real log_Z_com_poisson(real log_mu, real nu) {
   log_Z_terms[1] = log_k_term(log_mu, nu, 1);
   log_Z_terms[2] = log_k_term(log_mu, nu, 2);
 
-  while ((k % 10 == 0) && k < M &&
-    ((log_Z_terms[k] >= log_Z_terms[k-1]) ||
-    (bound_remainder(log_Z_terms[k], log_Z_terms[k-1]) >= leps))) {
+  while (((log_Z_terms[k] >= log_Z_terms[k-1]) ||
+    (stopping_criterio(log_Z_terms[k], log_Z_terms[k-1], k, leps))) &&
+    k < M) {
     k += 1;
     log_Z_terms[k] = log_k_term(log_mu, nu, k);
   }
