@@ -37,7 +37,7 @@ real log_k_term(real log_mu, real nu, int k) {
 real log_Z_com_poisson(real log_mu, real nu) {
   real log_Z;
   int k = 2;
-  int M = 50;
+  int M = 30;
   vector[M] log_Z_terms;
 
   if (nu == 1) {
