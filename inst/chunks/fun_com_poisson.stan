@@ -74,9 +74,9 @@
     if (nu == positive_infinity()) {
       reject("nu must be finite");
     }
-    //if (log_mu * nu >= log(1.5) && log_mu >= log(1.5)) {
-    //  return log_Z_com_poisson_approx(log_mu, nu);
-    //}
+    if (log_mu * nu >= log(1.5) && log_mu >= log(1.5)) {
+      return log_Z_com_poisson_approx(log_mu, nu);
+    }
     // direct computation of the truncated series
     // check if the Mth term of the series pass in the stopping criteria
     if (bound_remainder(log_k_term(log_mu, nu, M),
