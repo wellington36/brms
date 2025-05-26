@@ -30,7 +30,7 @@ real internal_bound_remainder(real k_current_term, real k_previous_term) {
 //   leps: log(eps) - Passed explicitly
 int internal_stopping_criterio_bucket(real k_current_term, real k_previous_term, int k, real leps) {
   // Renamed to avoid conflict, accepts leps explicitly
-  if (k % 50 == 0) {
+  if (k % 2 == 0) {
     return (internal_bound_remainder(k_current_term, k_previous_term) >= leps);
   }
   return (1e300 >= leps); // Int > leps
