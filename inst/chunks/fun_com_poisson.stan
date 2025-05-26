@@ -122,7 +122,7 @@ real internal_log_Z_com_poisson(real log_mu, real nu, real leps_val) {
 // Accesses global 'leps_custom' and passes it to internal_log_Z_com_poisson
 real com_poisson_log_lpmf(int y, real log_mu, real nu) {
   // Access leps_custom from data block (must be declared via stanvars)
-  real current_leps = - 23 * log(2);
+  real current_leps = leps_custom;
   if (nu == 1) return poisson_log_lpmf(y | log_mu);
   // Call internal helper, passing leps_custom explicitly
   return y * log_mu - nu * lgamma(y + 1) - internal_log_Z_com_poisson(log_mu, nu, current_leps);
@@ -148,7 +148,7 @@ real com_poisson_lpmf(int y, real mu, real nu) {
 // Accesses global 'leps_custom' and passes it to internal_log_Z_com_poisson
 real com_poisson_lcdf(int y, real mu, real nu) {
   // Access leps_custom from data block (must be declared via stanvars)
-  real current_leps = - 23 * log(2);
+  real current_leps = leps_custom;
   real log_mu;
   real log_Z;  // log denominator
   vector[y + 1] log_num_terms; // terms of the log numerator (indices 1 to y+1 for k=0 to y)
