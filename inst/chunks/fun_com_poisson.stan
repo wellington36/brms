@@ -70,7 +70,9 @@
       log_Z_terms[k] = log_k_term(log_mu, nu, k);
     }
     log_Z = log_sum_exp(log_Z_terms[1:k]);
-    print("n = ", k, "eps = ", exp(leps))
+
+    print("n = ", k, "eps = ", exp(leps));
+
     return log_Z;
   }
   // COM Poisson log-PMF for a single response (log parameterization)
