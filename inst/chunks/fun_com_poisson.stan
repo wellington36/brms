@@ -1,223 +1,130 @@
-// Stan code for inst/chunks/fun_com_poisson.stan in your brms fork
-// This version expects 'leps_custom' to be passed via the Stan 'data' block.
-
-
-// log of kth term of the normalizing series of the COM Poisson distribution
-// Args:
-//   log_mu: log location parameter
-//   nu: positive shape parameter
-//   k: k-th term
-real internal_log_k_term(real log_mu, real nu, int k) {
-  // Renamed to avoid conflict, signature unchanged
-  return (k - 1) * log_mu - nu * lgamma(k);
-}
-
-// bound for the remainder of the normalizing series of the COM Poisson
-// distribution given the last two terms in log-scale
-// Args:
-//   k_current_term: the log of a_k term
-//   k_previous_term: the log of a_(k-1) term
-real internal_bound_remainder(real k_current_term, real k_previous_term) {
-  // Renamed to avoid conflict, signature unchanged
-  return k_current_term - log(- expm1(k_current_term - k_previous_term));
-}
-
-// stopping criterio with bucket
-// Args:
-//   k_current_term: the log of a_k term
-//   k_previous_term: the log of a_(k-1) term
-//   k: k term of the series
-//   leps: log(eps) - Passed explicitly
-int internal_stopping_criterio_bucket(real k_current_term, real k_previous_term, int k, real leps) {
-  // Renamed to avoid conflict, accepts leps explicitly
-  if (k % 2 == 0) {
-    return (internal_bound_remainder(k_current_term, k_previous_term) >= leps);
-  }
-  return (1e300 >= leps); // Int > leps
-}
-
-// log normalizing constant of the COM Poisson distribution
-// implementation inspired by code of Ben Goodrich
-// improved following suggestions of Sebastian Weber (#892)
-// Args:
-//   log_mu: log location parameter
-//   nu: positive shape parameter
-//   leps_val: log(epsilon) value passed explicitly
-real internal_log_Z_com_poisson(real log_mu, real nu, real leps_val) {
-  // Renamed to avoid conflict, accepts leps_val explicitly
-  real log_Z;
-  int k = 2;
-  int M = 10000;
-  vector[M] log_Z_terms;
-
-  if (nu == 1) {
-    return exp(log_mu);
-  }
-  // nu == 0 or Inf will fail in this parameterization
-  if (nu <= 0) {
-    reject("nu must be positive");
-  }
-  if (nu == positive_infinity()) {
-    reject("nu must be finite");
+  // log of kth term of the normalizing series of the COM Poisson distribution
+  // Args:
+  //   log_mu: log location parameter
+  //   shape: positive shape parameter
+  //   k: k-th term
+  real log_k_term(real log_mu, real nu, int k) {
+    return (k - 1) * log_mu - nu * lgamma(k);
   }
 
-  // direct computation of the truncated series
-  // check if the Mth term of the series pass in the stopping criteria
-  if (internal_bound_remainder(internal_log_k_term(log_mu, nu, M),
-                               internal_log_k_term(log_mu, nu, M - 1)) >= leps_val) {
-    reject("nu is too close to zero.");
+  // bound for the remainder of the normalizing series of the COM Poisson
+  // distribution given the last two terms in log-scale
+  // Args:
+  //   k_current_term: the log of a_k term
+  //   k_previous_term: the log of a_(k-1) term
+  real bound_remainder(real k_current_term, real k_previous_term) {
+    return k_current_term - log(- expm1(k_current_term - k_previous_term));
   }
 
-  // first 2 terms of the series
-  log_Z_terms[1] = internal_log_k_term(log_mu, nu, 1);
-  log_Z_terms[2] = internal_log_k_term(log_mu, nu, 2);
-
-  while (((log_Z_terms[k] >= log_Z_terms[k-1]) ||
-    // Pass the explicit leps_val to the helper
-    (internal_stopping_criterio_bucket(log_Z_terms[k], log_Z_terms[k-1], k, leps_val))) &&
-    k < M) {
-    k += 1;
-    log_Z_terms[k] = internal_log_k_term(log_mu, nu, k);
-  }
-  log_Z = log_sum_exp(log_Z_terms[1:k]);
-
-  return log_Z;
-}
-
-// --- Functions Called by brms (Original Signatures Maintained) ---
-// These functions access the global 'leps_custom' from the data block
-// and pass it explicitly to the internal helper functions.
-
-// COM Poisson log-PMF for a single response (log parameterization)
-// Args:
-//   y: the response value
-//   log_mu: log location parameter
-//   nu: positive shape parameter
-// Accesses global 'leps_custom' and passes it to internal_log_Z_com_poisson
-real com_poisson_log_lpmf(int y, real log_mu, real nu) {
-  // Access leps_custom from data block (must be declared via stanvars)
-  real current_leps = leps_custom();
-  if (nu == 1) return poisson_log_lpmf(y | log_mu);
-  // Call internal helper, passing leps_custom explicitly
-  return y * log_mu - nu * lgamma(y + 1) - internal_log_Z_com_poisson(log_mu, nu, current_leps);
-}
-
-// COM Poisson log-PMF for a single response (non-log mu parameterization)
-// Args:
-//   y: the response value
-//   mu: location parameter
-//   nu: positive shape parameter
-// Accesses global 'leps_custom' implicitly via call to com_poisson_log_lpmf
-real com_poisson_lpmf(int y, real mu, real nu) {
-  if (nu == 1) return poisson_lpmf(y | mu);
-  // Call the log version, which accesses leps_custom and passes it down
-  return com_poisson_log_lpmf(y | log(mu), nu);
-}
-
-// COM Poisson log-CDF for a single response
-// Args:
-//   y: the response value
-//   mu: location parameter
-//   nu: positive shape parameter
-// Accesses global 'leps_custom' and passes it to internal_log_Z_com_poisson
-real com_poisson_lcdf(int y, real mu, real nu) {
-  // Access leps_custom from data block (must be declared via stanvars)
-  real current_leps = leps_custom();
-  real log_mu;
-  real log_Z;  // log denominator
-  vector[y + 1] log_num_terms; // terms of the log numerator (indices 1 to y+1 for k=0 to y)
-
-  if (nu == 1) {
-    return poisson_lcdf(y | mu);
-  }
-  // nu == 0 or Inf will fail in this parameterization
-  if (nu <= 0) {
-    reject("nu must be positive");
-  }
-  if (nu == positive_infinity()) {
-    reject("nu must be finite");
-  }
-  if (y < 0) return negative_infinity(); // CDF is 0 for y < 0
-  if (y > 10000) {
-      return 0; // log(1), assume CDF is 1 for large y
-  }
-
-  log_mu = log(mu);
-  // Calculate log_Z using the internal helper, passing leps_custom explicitly
-  log_Z = internal_log_Z_com_poisson(log_mu, nu, current_leps);
-
-  // Sum terms from k=0 to y
-  log_num_terms[1] = 0; // Term for k=0
-  if (y > 0) {
-      for (k in 1:y) {
-          // Use internal_log_k_term for consistency
-          log_num_terms[k + 1] = internal_log_k_term(log_mu, nu, k + 1);
-      }
-  }
-  
-  return log_sum_exp(log_num_terms[1:(y+1)]) - log_Z;
-}
-
-// COM Poisson log-CCDF for a single response
-// Args:
-//   y: the response value
-//   mu: location parameter
-//   nu: positive shape parameter
-// Accesses global 'leps_custom' implicitly via call to com_poisson_lcdf
-real com_poisson_lccdf(int y, real mu, real nu) {
-  return log1m_exp(com_poisson_lcdf(y | mu, nu));
-}
-
-// Vectorized version of the COM Poisson log-PMF
-// Required by brms
-// Accesses global 'leps_custom' implicitly via call to single-response lpmf
-real com_poisson_log_lpmf(array[] int y, vector log_mu, vector nu) {
-  int N = dims(y)[1];
-  real out = 0;
-  if (size(log_mu) != N || size(nu) != N) {
-    reject("Vectorizing 'com_poisson_log' failed: Failed to match vector sizes.");
-  }
-  for (n in 1:N) {
-    // Call the single-response version (which accesses leps_custom and passes it down)
-    out += com_poisson_log_lpmf(y[n] | log_mu[n], nu[n]);
-  }
-  return out;
-}
-
-// Random number generation for the COM Poisson distribution
-// Required by brms for posterior predictive checks etc.
-// Accesses global 'leps_custom' implicitly via call to lcdf
-int com_poisson_rng(real mu, real nu) {
-  int y = 0;
-  real u = uniform_rng(0, 1);
-  // Call lcdf (which accesses leps_custom and passes it down)
-  real cdf_val = exp(com_poisson_lcdf(y | mu, nu));
-  // Search for y such that CDF(y-1) < u <= CDF(y)
-  while (u > cdf_val) {
-    y += 1;
-    if (y > 10000) { // Add a safeguard
-      reject("com_poisson_rng failed: y > 10000");
-      return -999; // Should not be reached
+  // stopping criterio with bucket
+  // Args:
+  //   k_current_term: the log of a_k term
+  //   k_previous_term: the log of a_(k-1) term
+  //   k: k term of the series
+  //   leps: log(eps)
+  int stopping_criterio_bucket(real k_current_term, real k_previous_term, int k, real leps) {
+    if (k % 1 == 0) {
+      return (bound_remainder(k_current_term, k_previous_term) >= leps);
     }
-    // Call lcdf (which accesses leps_custom and passes it down)
-    cdf_val = exp(com_poisson_lcdf(y | mu, nu));
+    return (1e300 >= leps); // Int > leps
   }
-  return y;
-}
 
-// Vectorized RNG function
-// Required by brms
-// Accesses global 'leps_custom' implicitly via call to single-response rng
-array[] int com_poisson_rng(vector mu, vector nu) {
-  int N = size(mu);
-  array[N] int y;
-  if (size(nu) != N) {
-    reject("Vectorizing 'com_poisson_rng' failed: Failed to match vector sizes.");
-  }
-  for (n in 1:N) {
-    // Call the single-response RNG (which accesses leps_custom and passes it down)
-    y[n] = com_poisson_rng(mu[n], nu[n]);
-  }
-  return y;
-}
+  // log normalizing constant of the COM Poisson distribution
+  // implementation inspired by code of Ben Goodrich
+  // improved following suggestions of Sebastian Weber (#892)
+  // Args:
+  //   log_mu: log location parameter
+  //   shape: positive shape parameter
+  real log_Z_com_poisson(real log_mu, real nu, real leps) {
+    real log_Z;
+    int k = 2;
+    int M = 10000;
+    vector[M] log_Z_terms;
 
+    if (nu == 1) {
+      return exp(log_mu);
+    }
+    // nu == 0 or Inf will fail in this parameterization
+    if (nu <= 0) {
+      reject("nu must be positive");
+    }
+    if (nu == positive_infinity()) {
+      reject("nu must be finite");
+    }
+
+    // direct computation of the truncated series
+    // check if the Mth term of the series pass in the stopping criteria
+    if (bound_remainder(log_k_term(log_mu, nu, M),
+                        log_k_term(log_mu, nu, M - 1)) >= leps) {
+      reject("nu is too close to zero.");
+    }
+
+    // first 2 terms of the series
+    log_Z_terms[1] = log_k_term(log_mu, nu, 1);
+    log_Z_terms[2] = log_k_term(log_mu, nu, 2);
+
+    while (((log_Z_terms[k] >= log_Z_terms[k-1]) ||
+      (stopping_criterio_bucket(log_Z_terms[k], log_Z_terms[k-1], k, leps))) &&
+      k < M) {
+      k += 1;
+      log_Z_terms[k] = log_k_term(log_mu, nu, k);
+    }
+    log_Z = log_sum_exp(log_Z_terms[1:k]);
+
+    return log_Z;
+  }
+  // COM Poisson log-PMF for a single response (log parameterization)
+  // Args:
+  //   y: the response value
+  //   log_mu: log location parameter
+  //   shape: positive shape parameter
+  real com_poisson_log_lpmf(int y, real log_mu, real nu) {
+    real current_leps = leps_custom();
+    if (nu == 1) return poisson_log_lpmf(y | log_mu);
+    return y * log_mu - nu * lgamma(y + 1) - log_Z_com_poisson(log_mu, nu, current_leps);
+  }
+  // COM Poisson log-PMF for a single response
+  real com_poisson_lpmf(int y, real mu, real nu) {
+    if (nu == 1) return poisson_lpmf(y | mu);
+    return com_poisson_log_lpmf(y | log(mu), nu);
+  }
+  // COM Poisson log-CDF for a single response
+  real com_poisson_lcdf(int y, real mu, real nu) {
+    real current_leps = leps_custom();
+    real log_mu;
+    real log_Z;  // log denominator
+    vector[y] log_num_terms;  // terms of the log numerator
+    if (nu == 1) {
+      return poisson_lcdf(y | mu);
+    }
+    // nu == 0 or Inf will fail in this parameterization
+    if (nu <= 0) {
+      reject("nu must be positive");
+    }
+    if (nu == positive_infinity()) {
+      reject("nu must be finite");
+    }
+    if (y > 10000) {
+      reject("cannot handle y > 10000");
+    }
+    log_mu = log(mu);
+    if (y * log_mu - nu * lgamma(y + 1) <= -36.0) {
+      // y is large enough for the CDF to be very close to 1;
+      return 0;
+    }
+    log_Z = log_Z_com_poisson(log_mu, nu, current_leps);
+    if (y == 0) {
+      return -log_Z;
+    }
+    // first 2 terms of the series
+    log_num_terms[1] = log1p_exp(nu * log_mu);
+    // remaining terms of the series until y
+    for (k in 2:y) {
+      log_num_terms[k] = k * log_mu - nu * lgamma(k + 1);
+    }
+    return log_sum_exp(log_num_terms) - log_Z;
+  }
+  // COM Poisson log-CCDF for a single response
+  real com_poisson_lccdf(int y, real mu, real nu) {
+    return log1m_exp(com_poisson_lcdf(y | mu, nu));
+  }
