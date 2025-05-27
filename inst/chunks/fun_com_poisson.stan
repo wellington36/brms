@@ -71,7 +71,7 @@
     }
     log_Z = log_sum_exp(log_Z_terms[1:k]);
 
-    print("n = ", k, "eps = ", exp(leps));
+    print("n = ", k, " eps = ", exp(leps), " mu = ", exp(log_mu), " nu = ", nu);
 
     return log_Z;
   }
