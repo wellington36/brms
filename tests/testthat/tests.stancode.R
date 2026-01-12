@@ -2235,7 +2235,7 @@ test_that("Stan code for advanced count data distribution is correct", {
     count ~ zAge + zBase * Trt + (1|patient),
     data = epilepsy, family = brmsfamily("com_poisson")
   )
-  expect_match2(scode, "target += com_poisson_log_lpmf(Y[n] | mu[n], shape);")
+  expect_match2(scode, "target += com_poisson_lpmf(Y[n] | mu[n], shape);")
 })
 
 test_that("argument 'stanvars' is handled correctly", {
