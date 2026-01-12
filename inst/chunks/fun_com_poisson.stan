@@ -4,7 +4,7 @@
   //   shape: positive shape parameter
   //   k: k-th term
   real log_k_term(real log_mu, real nu, int k) {
-    return (k - 1) * log_mu - nu * lgamma(k);
+    return nu * ((k - 1) * log_mu - lgamma(k));
   }
 
   // bound for the remainder of the normalizing series of the COM Poisson
@@ -71,8 +71,6 @@
     }
     log_Z = log_sum_exp(log_Z_terms[1:k]);
 
-    //print("n = ", k, " eps = ", exp(leps), " mu = ", exp(log_mu), " nu = ", nu);
-
     return log_Z;
   }
   // COM Poisson log-PMF for a single response (log parameterization)
@@ -83,7 +81,7 @@
   real com_poisson_log_lpmf(int y, real log_mu, real nu) {
     real current_leps = leps_custom();
     if (nu == 1) return poisson_log_lpmf(y | log_mu);
-    return y * log_mu - nu * lgamma(y + 1) - log_Z_com_poisson(log_mu, nu, current_leps);
+    return nu * (y * log_mu - lgamma(y + 1)) - log_Z_com_poisson(log_mu, nu, current_leps);
   }
   // COM Poisson log-PMF for a single response
   real com_poisson_lpmf(int y, real mu, real nu) {
@@ -110,7 +108,7 @@
       reject("cannot handle y > 10000");
     }
     log_mu = log(mu);
-    if (y * log_mu - nu * lgamma(y + 1) <= -36.0) {
+    if (nu * (y * log_mu - lgamma(y + 1)) <= -36.0) {
       // y is large enough for the CDF to be very close to 1;
       return 0;
     }
@@ -122,7 +120,7 @@
     log_num_terms[1] = log1p_exp(nu * log_mu);
     // remaining terms of the series until y
     for (k in 2:y) {
-      log_num_terms[k] = k * log_mu - nu * lgamma(k + 1);
+      log_num_terms[k] = nu * (k * log_mu - lgamma(k + 1));
     }
     return log_sum_exp(log_num_terms) - log_Z;
   }
