@@ -63,7 +63,7 @@
     log_Z_terms[1] = log_k_term(log_mu, nu, 1);
     log_Z_terms[2] = log_k_term(log_mu, nu, 2);
 
-    while (((k < to_int(exp(log_mu)) + 2) ||
+    while (((k < exp(log_mu) + 2) ||
       (stopping_criterio_bucket(log_Z_terms[k], log_Z_terms[k-1], k, leps))) &&
       k < M) {
       k += 1;
